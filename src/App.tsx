@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ErrorBoundary } from 'react-error-boundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -58,7 +58,7 @@ export default function App() {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <AuthProvider>
-        <BrowserRouter basename="/Patrol-Flow-Pro">
+        <HashRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
 
@@ -98,7 +98,7 @@ export default function App() {
               <Route path="users" element={<Users />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </AuthProvider>
     </ErrorBoundary>
   );
