@@ -19,20 +19,19 @@ import Recurrences from './pages/Recurrences';
 import Analytics from './pages/Analytics';
 import MonthlyReport from './pages/MonthlyReport';
 import Users from './pages/Users';
-
 import CategoryMaster from './pages/CategoryMaster';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isAuthReady } = useAuth();
-  
+
   if (!isAuthReady) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50">読み込み中...</div>;
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -59,42 +58,43 @@ export default function App() {
   return (
     <ErrorBoundary FallbackComponent={ErrorFallback}>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/Patrol-Flow-Pro">
           <Routes>
             <Route path="/login" element={<Login />} />
-            
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }>
+
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<Dashboard />} />
-              
+
               <Route path="sites">
                 <Route index element={<Sites />} />
                 <Route path="new" element={<SiteNew />} />
                 <Route path=":siteId" element={<SiteDetail />} />
               </Route>
-              
+
               <Route path="patrols">
                 <Route index element={<Patrols />} />
                 <Route path="new" element={<PatrolNew />} />
                 <Route path=":patrolId" element={<PatrolDetail />} />
                 <Route path=":patrolId/findings/new" element={<FindingNew />} />
               </Route>
-              
+
               <Route path="findings">
                 <Route path="incomplete" element={<IncompleteFindings />} />
                 <Route path="good-practices" element={<GoodPractices />} />
                 <Route path="recurrences" element={<Recurrences />} />
                 <Route path=":findingId" element={<FindingDetail />} />
               </Route>
-              
+
               <Route path="analytics" element={<Analytics />} />
               <Route path="monthly-report" element={<MonthlyReport />} />
-              
               <Route path="categories" element={<CategoryMaster />} />
-              
               <Route path="users" element={<Users />} />
             </Route>
           </Routes>
