@@ -1,0 +1,135 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and role information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "safety", "field", "viewer"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Site": {
+      "title": "Site",
+      "description": "Construction site information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "description": "工事名" },
+        "shortName": { "type": "string", "description": "現場略称" },
+        "client": { "type": "string", "description": "発注者" },
+        "location": { "type": "string", "description": "工事場所" },
+        "manager": { "type": "string", "description": "現場責任者" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "notes": { "type": "string", "description": "備考" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "shortName"]
+    },
+    "Patrol": {
+      "title": "Patrol",
+      "description": "Safety patrol record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date", "description": "実施日" },
+        "siteId": { "type": "string", "description": "現場ID" },
+        "inspector": { "type": "string", "description": "実施者" },
+        "mainWork": { "type": "string", "description": "当日の主作業" },
+        "weather": { "type": "string", "description": "天候" },
+        "notes": { "type": "string", "description": "特記事項" },
+        "status": { "type": "string", "enum": ["draft", "completed"], "description": "ステータス" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "authorUid": { "type": "string" }
+      },
+      "required": ["date", "siteId", "inspector", "status", "authorUid"]
+    },
+    "Finding": {
+      "title": "Finding",
+      "description": "Finding or issue identified during a patrol",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patrolId": { "type": "string" },
+        "siteId": { "type": "string" },
+        "type": { "type": "string", "enum": ["是正指示", "注意喚起", "好事例"], "description": "指摘区分" },
+        "urgency": { "type": "string", "enum": ["即時是正", "早期是正", "期限管理", "なし"], "description": "緊急度" },
+        "categoryMajor": { "type": "string", "description": "大分類" },
+        "categoryMiddle": { "type": "string", "description": "中分類" },
+        "categoryMinor": { "type": "string", "description": "小分類" },
+        "description": { "type": "string", "description": "指摘内容" },
+        "location": { "type": "string", "description": "発生場所" },
+        "correctionInstruction": { "type": "string", "description": "是正内容（指示）" },
+        "deadline": { "type": "string", "format": "date", "description": "是正期限" },
+        "notes": { "type": "string", "description": "備考" },
+        "isRecurrence": { "type": "boolean", "description": "再発判定" },
+        "status": { "type": "string", "enum": ["未対応", "対応中", "確認待ち", "完了", "再是正", "対象外"], "description": "状態" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "authorUid": { "type": "string" }
+      },
+      "required": ["patrolId", "siteId", "type", "description", "status", "authorUid"]
+    },
+    "CorrectiveAction": {
+      "title": "CorrectiveAction",
+      "description": "Action taken to correct a finding",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "findingId": { "type": "string" },
+        "date": { "type": "string", "format": "date", "description": "対応日" },
+        "description": { "type": "string", "description": "是正内容" },
+        "inputter": { "type": "string", "description": "現場入力者" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "authorUid": { "type": "string" }
+      },
+      "required": ["findingId", "date", "description", "inputter", "authorUid"]
+    },
+    "Confirmation": {
+      "title": "Confirmation",
+      "description": "Confirmation of a corrective action",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "findingId": { "type": "string" },
+        "date": { "type": "string", "format": "date", "description": "確認日" },
+        "confirmer": { "type": "string", "description": "確認者" },
+        "result": { "type": "string", "enum": ["完了", "再是正"], "description": "確認結果" },
+        "comment": { "type": "string", "description": "確認コメント" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "authorUid": { "type": "string" }
+      },
+      "required": ["findingId", "date", "confirmer", "result", "authorUid"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles and roles"
+    },
+    "/sites/{siteId}": {
+      "schema": { "$ref": "#/entities/Site" },
+      "description": "Construction sites"
+    },
+    "/patrols/{patrolId}": {
+      "schema": { "$ref": "#/entities/Patrol" },
+      "description": "Safety patrols"
+    },
+    "/findings/{findingId}": {
+      "schema": { "$ref": "#/entities/Finding" },
+      "description": "Findings from patrols"
+    },
+    "/corrective_actions/{actionId}": {
+      "schema": { "$ref": "#/entities/CorrectiveAction" },
+      "description": "Corrective actions for findings"
+    },
+    "/confirmations/{confirmationId}": {
+      "schema": { "$ref": "#/entities/Confirmation" },
+      "description": "Confirmations of corrective actions"
+    }
+  }
+}

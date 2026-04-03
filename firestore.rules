@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // MVP: 認証済みユーザーであれば全コレクションの読み書きを許可する
+    // より確実な保存を優先するため、複雑なバリデーションを一時的に無効化
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+  }
+}

@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isUnder5MB() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // 1. Findings Images (指摘事項の写真)
+    match /findings/{userId}/{imageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isImage() && isUnder5MB();
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // 2. Corrective Action Images (是正対応後の写真)
+    match /actions/{userId}/{imageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isImage() && isUnder5MB();
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    // 3. User Avatars (ユーザーアイコン)
+    match /users/{userId}/avatar {
+      allow read: if isAuthenticated();
+      allow create, update: if request.auth.uid == userId && isImage() && isUnder5MB();
+      allow delete: if request.auth.uid == userId;
+    }
+    
+    // Fallback for other paths
+    match /{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+  }
+}
