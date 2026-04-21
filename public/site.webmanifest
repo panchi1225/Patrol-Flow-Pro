@@ -1,0 +1,14 @@
+{
+  "name": "Patrol Flow",
+  "short_name": "Patrol Flow",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#1e40af",
+  "background_color": "#ffffff",
+  "display": "standalone"
+}
