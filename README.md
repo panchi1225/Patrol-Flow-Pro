@@ -18,3 +18,16 @@ View your app in AI Studio: https://ai.studio/apps/241376eb-e687-465b-9bc4-685cc
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Build / Preview
+
+1. Build:
+   `npm run build`
+2. Local preview:
+   `npm run preview`
+
+## Firebase Preview (optional)
+
+If Firebase Hosting is configured in your environment, use preview channels:
+
+`firebase hosting:channel:deploy <channel-name>`

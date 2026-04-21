@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, query, where, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, uploadPhoto } from '../lib/firebase';
 import { canUseFieldFeatures, canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
@@ -70,27 +70,46 @@ const FindingDetail: React.FC = () => {
   useEffect(() => {
     if (!isAuthReady || !profile || !findingId) return;
 
-    const fetchFinding = async () => {
-      try {
-        const findingDoc = await getDoc(doc(db, 'findings', findingId));
-        if (findingDoc.exists()) {
-          setFinding({ id: findingDoc.id, ...findingDoc.data() } as Finding);
-        }
-      } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `findings/${findingId}`);
+    const unsubscribeFinding = onSnapshot(doc(db, 'findings', findingId), (findingDoc) => {
+      if (findingDoc.exists()) {
+        setFinding({ id: findingDoc.id, ...findingDoc.data() } as Finding);
+      } else {
+        setFinding(null);
       }
-    };
+      setLoading(false);
+    }, (error) => handleFirestoreError(error, OperationType.GET, `findings/${findingId}`));
 
-    fetchFinding();
+    const actionMap = new Map<string, CorrectiveAction>();
+    const syncActions = () => {
+      const mergedActions = Array.from(actionMap.values()).sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      );
+      setActions(mergedActions);
+    };
 
     const qActions = query(collection(db, 'corrective_actions'), where('findingId', '==', findingId));
     const unsubscribeActions = onSnapshot(qActions, (snapshot) => {
-      const actionData: CorrectiveAction[] = [];
-      snapshot.forEach((doc) => {
-        actionData.push({ id: doc.id, ...doc.data() } as CorrectiveAction);
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'removed') {
+          actionMap.delete(change.doc.id);
+          return;
+        }
+        actionMap.set(change.doc.id, { id: change.doc.id, ...change.doc.data() } as CorrectiveAction);
       });
-      actionData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setActions(actionData);
+      syncActions();
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'corrective_actions'));
+
+    // 旧データ互換: finding_id を使っていた是正対応も取得する
+    const qLegacyActions = query(collection(db, 'corrective_actions'), where('finding_id', '==', findingId));
+    const unsubscribeLegacyActions = onSnapshot(qLegacyActions, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type === 'removed') {
+          actionMap.delete(change.doc.id);
+          return;
+        }
+        actionMap.set(change.doc.id, { id: change.doc.id, ...change.doc.data() } as CorrectiveAction);
+      });
+      syncActions();
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'corrective_actions'));
 
     const qConfirmations = query(collection(db, 'confirmations'), where('findingId', '==', findingId));
@@ -101,11 +120,12 @@ const FindingDetail: React.FC = () => {
       });
       confirmationData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setConfirmations(confirmationData);
-      setLoading(false);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'confirmations'));
 
     return () => {
+      unsubscribeFinding();
       unsubscribeActions();
+      unsubscribeLegacyActions();
       unsubscribeConfirmations();
     };
   }, [isAuthReady, profile, findingId]);
@@ -167,13 +187,19 @@ const FindingDetail: React.FC = () => {
         date: new Date().toISOString(),
         description: actionDescription,
         inputter: profile.displayName,
+        inputterUid: profile.uid,
+        findingStatusAtRegistration: finding?.status ?? null,
         photoUrl,
       });
 
-      // Update finding status to '確認待ち'
-      await updateDoc(doc(db, 'findings', findingId), {
-        status: '確認待ち'
-      });
+      // 是正対応そのものの保存成功を優先。ステータス更新失敗は警告扱いにする。
+      try {
+        await updateDoc(doc(db, 'findings', findingId), {
+          status: '確認待ち'
+        });
+      } catch (statusUpdateError) {
+        console.warn('Corrective action is saved, but status update failed.', statusUpdateError);
+      }
 
       setActionStatus('保存完了');
       setIsActionModalOpen(false);
@@ -416,7 +442,7 @@ const FindingDetail: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="flex items-center justify-between mb-6 border-b pb-2">
                 <h2 className="text-xl font-bold text-gray-900">是正確認履歴</h2>
-                {canUseSafetyFeatures(profile?.role) && finding.status === '確認待ち' && (
+                {canUseSafetyFeatures(profile?.role) && finding.status !== '完了' && actions.length > 0 && (
                   <button 
                     onClick={() => setIsConfirmationModalOpen(true)}
                     className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
