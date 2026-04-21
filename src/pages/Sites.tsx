@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Plus, MapPin, Calendar, User, Building2 } from 'lucide-react';
@@ -51,7 +52,7 @@ const Sites: React.FC = () => {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center flex-wrap gap-4">
             現場一覧
-            {(profile?.role === 'admin' || profile?.role === 'safety') && (
+            {canUseSafetyFeatures(profile?.role) && (
               <Link
                 to="/sites/new"
                 className="text-sm bg-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm"
@@ -121,7 +122,7 @@ const Sites: React.FC = () => {
             <MapPin className="mx-auto text-gray-400 mb-4" size={48} />
             <h3 className="text-lg font-medium text-gray-900 mb-2">現場が登録されていません</h3>
             <p className="text-gray-500">
-              {(profile?.role === 'admin' || profile?.role === 'safety') 
+              {canUseSafetyFeatures(profile?.role)
                 ? '「新規登録」ボタンから現場を追加してください。'
                 : '管理者が現場を登録するのをお待ちください。'}
             </p>

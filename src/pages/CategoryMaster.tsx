@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, getDocs, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { isAdmin } from '../lib/permissions';
 import { Plus, Edit2, Check, X, AlertCircle, Power, PowerOff, ChevronUp, ChevronDown, Database } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -599,7 +600,7 @@ export default function CategoryMaster() {
           <h1 className="text-2xl font-bold text-gray-900">指摘分類マスタ管理</h1>
           <p className="text-gray-500 mt-2">大分類・中分類・小分類の階層構造を管理します。</p>
         </div>
-        {profile?.role === 'admin' && (
+        {isAdmin(profile?.role) && (
           <button
             onClick={handleSeedData}
             disabled={isSeeding}

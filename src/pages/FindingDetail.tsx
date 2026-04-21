@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, uploadPhoto } from '../lib/firebase';
+import { canUseFieldFeatures, canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, AlertCircle, CheckCircle, Clock, MapPin, FileText, User, Camera, X } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
@@ -133,6 +134,10 @@ const FindingDetail: React.FC = () => {
       setActionError('ユーザー情報または指摘事項IDが取得できません。');
       return;
     }
+    if (!canUseFieldFeatures(profile.role)) {
+      setActionError('この操作を実行する権限がありません。');
+      return;
+    }
 
     setSubmitting(true);
     setActionError(null);
@@ -192,6 +197,10 @@ const FindingDetail: React.FC = () => {
   const handleAddConfirmation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile || !findingId) return;
+    if (!canUseSafetyFeatures(profile.role)) {
+      alert('この操作を実行する権限がありません。');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -364,7 +373,7 @@ const FindingDetail: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="flex items-center justify-between mb-6 border-b pb-2">
                 <h2 className="text-xl font-bold text-gray-900">是正対応履歴</h2>
-                {(profile?.role === 'admin' || profile?.role === 'field' || profile?.role === 'safety') && finding.status !== '完了' && (
+                {canUseFieldFeatures(profile?.role) && finding.status !== '完了' && (
                   <button 
                     onClick={() => setIsActionModalOpen(true)}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
@@ -407,7 +416,7 @@ const FindingDetail: React.FC = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
               <div className="flex items-center justify-between mb-6 border-b pb-2">
                 <h2 className="text-xl font-bold text-gray-900">是正確認履歴</h2>
-                {(profile?.role === 'admin' || profile?.role === 'safety') && finding.status === '確認待ち' && (
+                {canUseSafetyFeatures(profile?.role) && finding.status === '確認待ち' && (
                   <button 
                     onClick={() => setIsConfirmationModalOpen(true)}
                     className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
