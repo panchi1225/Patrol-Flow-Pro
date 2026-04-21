@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, doc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { AppRole, canManageUsers } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Shield, User as UserIcon, AlertCircle } from 'lucide-react';
@@ -30,7 +31,7 @@ const Users: React.FC = () => {
     if (!isAuthReady || !profile) return;
 
     // Only admins can view the user list
-    if (profile.role !== 'admin') {
+    if (!canManageUsers(profile.role as AppRole)) {
       setLoading(false);
       return;
     }
@@ -68,7 +69,7 @@ const Users: React.FC = () => {
 
   if (loading) return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
 
-  if (profile?.role !== 'admin') {
+  if (!canManageUsers(profile?.role as AppRole | undefined)) {
     return (
       <div className="p-12 text-center">
         <AlertCircle className="mx-auto text-red-500 mb-4" size={48} />

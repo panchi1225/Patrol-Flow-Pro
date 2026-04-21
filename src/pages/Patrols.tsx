@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Plus, ClipboardList, MapPin, Calendar, User } from 'lucide-react';
@@ -108,7 +109,7 @@ const Patrols: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">パトロール記録</h1>
           <p className="text-gray-500 mt-2">実施済みのパトロール一覧</p>
         </div>
-        {(profile?.role === 'admin' || profile?.role === 'safety') && (
+        {canUseSafetyFeatures(profile?.role) && (
           <Link
             to="/patrols/new"
             className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm w-full sm:w-auto justify-center"
@@ -168,7 +169,7 @@ const Patrols: React.FC = () => {
             <ClipboardList className="mx-auto text-gray-400 mb-4" size={48} />
             <h3 className="text-lg font-medium text-gray-900 mb-2">パトロール記録がありません</h3>
             <p className="text-gray-500">
-              {(profile?.role === 'admin' || profile?.role === 'safety') 
+              {canUseSafetyFeatures(profile?.role)
                 ? '「新規登録」ボタンからパトロールを記録してください。'
                 : '管理者がパトロールを記録するのをお待ちください。'}
             </p>

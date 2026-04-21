@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, CheckCircle, Clock, FileText } from 'lucide-react';
@@ -101,7 +102,7 @@ const Dashboard: React.FC = () => {
       <div className="mt-12">
         <h2 className="text-xl font-bold text-gray-900 mb-6">クイックアクション</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {(profile?.role === 'admin' || profile?.role === 'safety') && (
+          {canUseSafetyFeatures(profile?.role) && (
             <Link 
               to="/patrols/new"
               className="bg-blue-600 text-white rounded-xl p-6 flex items-center justify-between hover:bg-blue-700 transition-colors shadow-sm"

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
 import { ClipboardList, Calendar, User, ArrowLeft, MapPin, Plus, AlertCircle, CheckCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -118,7 +119,7 @@ const PatrolDetail: React.FC = () => {
               </h1>
             </div>
           </div>
-          {(profile?.role === 'admin' || profile?.role === 'safety') && patrol.status === 'draft' && (
+          {canUseSafetyFeatures(profile?.role) && patrol.status === 'draft' && (
             <Link
               to={`/patrols/${patrol.id}/findings/new`}
               className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm w-full sm:w-auto justify-center shrink-0"

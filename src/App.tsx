@@ -22,13 +22,13 @@ import Users from './pages/Users';
 import CategoryMaster from './pages/CategoryMaster';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAuthReady } = useAuth();
+  const { user, profile, loading, isAuthReady } = useAuth();
 
-  if (!isAuthReady) {
+  if (!isAuthReady || loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50">読み込み中...</div>;
   }
 
-  if (!user) {
+  if (!user || !profile) {
     return <Navigate to="/login" replace />;
   }
 

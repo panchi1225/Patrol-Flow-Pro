@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { signOut } from '../lib/firebase';
+import { isAdmin } from '../lib/permissions';
 import { Home, MapPin, ClipboardList, AlertCircle, LogOut, Menu, X, Users as UsersIcon, Star, Repeat, BarChart3, Settings, FileText } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -26,7 +27,7 @@ const Layout: React.FC = () => {
     { path: '/monthly-report', label: '月次報告', icon: FileText },
   ];
 
-  if (profile?.role === 'admin') {
+  if (isAdmin(profile?.role)) {
     navItems.push({ path: '/categories', label: '分類マスタ管理', icon: Settings });
     navItems.push({ path: '/users', label: 'ユーザー管理', icon: UsersIcon });
   }

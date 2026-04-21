@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { onSnapshot, updateDoc } from 'firebase/firestore';
+import { auth, db, findUserProfileRefByAuthUser, signOut } from '../lib/firebase';
 
 export type Role = 'admin' | 'safety' | 'field' | 'viewer';
 
@@ -39,40 +39,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
+    let unsubscribeProfile: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+
       setUser(firebaseUser);
       setIsAuthReady(true);
       
       if (firebaseUser) {
-        // Subscribe to user profile
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const unsubscribeProfile = onSnapshot(userRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data() as UserProfile;
-            
-            // Auto-upgrade the designated admin if their role is not 'admin'
-            if (firebaseUser.email === ADMIN_EMAIL && data.role !== 'admin') {
-              updateDoc(userRef, { role: 'admin' }).catch(console.error);
-            }
-            
-            setProfile(data);
-          } else {
+        setLoading(true);
+
+        findUserProfileRefByAuthUser(firebaseUser).then((userRef) => {
+          if (!userRef) {
             setProfile(null);
+            signOut().catch(console.error);
+            setLoading(false);
+            return;
           }
-          setLoading(false);
-        }, (error) => {
-          console.error("Error fetching user profile", error);
+
+          unsubscribeProfile = onSnapshot(
+            userRef,
+            (docSnap) => {
+              if (docSnap.exists()) {
+                const data = docSnap.data() as UserProfile;
+
+                // Auto-upgrade the designated admin if their role is not 'admin'
+                if (firebaseUser.email === ADMIN_EMAIL && data.role !== 'admin') {
+                  updateDoc(userRef, { role: 'admin' }).catch(console.error);
+                }
+
+                setProfile(data);
+              } else {
+                setProfile(null);
+              }
+              setLoading(false);
+            },
+            (error) => {
+              console.error('Error fetching user profile', error);
+              setProfile(null);
+              setLoading(false);
+            },
+          );
+        }).catch((error) => {
+          console.error('Error checking user profile access', error);
+          setProfile(null);
           setLoading(false);
         });
-        
-        return () => unsubscribeProfile();
       } else {
         setProfile(null);
         setLoading(false);
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+      }
+      unsubscribeAuth();
+    };
   }, []);
 
   return (
