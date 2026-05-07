@@ -102,50 +102,6 @@ const PatrolDetail: React.FC = () => {
       handleFirestoreError(error, OperationType.DELETE, `patrols/${patrolId}`);
     }
   };
-  const handleExportPatrolSummaryPdf = () => {
-    if (!patrol) return;
-    const inspectedAt = format(parseISO(patrol.date), 'yyyy/MM/dd');
-    const issueRows = issues.map((f, idx) => `
-      <tr>
-        <td>${idx + 1}</td>
-        <td>${f.type}</td>
-        <td>${f.status}</td>
-        <td>${f.urgency ?? '-'}</td>
-        <td>${(f.description || '-').replace(/</g, '&lt;')}</td>
-      </tr>
-    `).join('');
-    const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8" />
-      <title>パトロール結果</title>
-      <style>
-        @page { size: A4 portrait; margin: 12mm; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; color: #111827; }
-        h1 { font-size: 18px; margin: 0 0 12px; } h2 { font-size: 13px; margin: 12px 0 6px; }
-        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; } th, td { border: 1px solid #d1d5db; padding: 4px; vertical-align: top; word-break: break-word; }
-        th { background: #f3f4f6; } .note { white-space: pre-wrap; border: 1px solid #d1d5db; padding: 6px; min-height: 48px; }
-      </style></head><body>
-      <h1>パトロール結果報告書</h1>
-      <div class="meta">
-        <div><strong>現場名:</strong> ${site?.name ?? '-'}</div><div><strong>実施日:</strong> ${inspectedAt}</div>
-        <div><strong>実施者:</strong> ${patrol.inspector || '-'}</div><div><strong>天候:</strong> ${patrol.weather || '-'}</div>
-      </div>
-      <h2>当日の主作業</h2><div class="note">${(patrol.mainWork || '-').replace(/</g, '&lt;')}</div>
-      <h2>指摘事項（${issues.length}件）</h2>
-      <table><thead><tr><th style="width:6%">No</th><th style="width:14%">区分</th><th style="width:14%">状態</th><th style="width:14%">緊急度</th><th>内容</th></tr></thead>
-      <tbody>${issueRows || '<tr><td colspan="5">指摘事項なし</td></tr>'}</tbody></table>
-      <h2>特記事項</h2><div class="note">${(patrol.notes || '-').replace(/</g, '&lt;')}</div>
-      </body></html>`;
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1200');
-    if (!printWindow) {
-      alert('PDF出力ウィンドウを開けませんでした。ポップアップブロックを解除してください。');
-      return;
-    }
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
-  };
-
   const issues = findings.filter(f => f.type !== '好事例');
   const goodPractices = findings.filter(f => f.type === '好事例');
 
@@ -182,12 +138,6 @@ const PatrolDetail: React.FC = () => {
               <Trash2 size={16} className="mr-1" />削除
             </button>
           )}
-          <button
-            onClick={handleExportPatrolSummaryPdf}
-            className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-emerald-700 transition-colors flex items-center"
-          >
-            現場向けPDF出力
-          </button>
           {canUseSafetyFeatures(profile?.role) && patrol.status === 'draft' && (
             <Link
               to={`/patrols/${patrol.id}/findings/new`}
