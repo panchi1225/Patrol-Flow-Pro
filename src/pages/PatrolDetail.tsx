@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { canUseSafetyFeatures } from '../lib/permissions';
@@ -46,6 +46,7 @@ const PatrolDetail: React.FC = () => {
   const { patrolId } = useParams<{ patrolId: string }>();
   const { profile, isAuthReady } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [patrol, setPatrol] = useState<Patrol | null>(null);
   const [site, setSite] = useState<Site | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -103,51 +104,60 @@ const PatrolDetail: React.FC = () => {
     }
   };
   const handleExportPatrolSummaryPdf = () => {
-    if (!patrol) return;
-    const inspectedAt = format(parseISO(patrol.date), 'yyyy/MM/dd');
-    const issueRows = issues.map((f, idx) => `
-      <tr>
-        <td>${idx + 1}</td>
-        <td>${f.type}</td>
-        <td>${f.status}</td>
-        <td>${f.urgency ?? '-'}</td>
-        <td>${(f.description || '-').replace(/</g, '&lt;')}</td>
-      </tr>
-    `).join('');
-    const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8" />
-      <title>パトロール結果</title>
-      <style>
-        @page { size: A4 portrait; margin: 12mm; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 11px; color: #111827; }
-        h1 { font-size: 18px; margin: 0 0 12px; } h2 { font-size: 13px; margin: 12px 0 6px; }
-        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; table-layout: fixed; } th, td { border: 1px solid #d1d5db; padding: 4px; vertical-align: top; word-break: break-word; }
-        th { background: #f3f4f6; } .note { white-space: pre-wrap; border: 1px solid #d1d5db; padding: 6px; min-height: 48px; }
-      </style></head><body>
-      <h1>パトロール結果報告書</h1>
-      <div class="meta">
-        <div><strong>現場名:</strong> ${site?.name ?? '-'}</div><div><strong>実施日:</strong> ${inspectedAt}</div>
-        <div><strong>実施者:</strong> ${patrol.inspector || '-'}</div><div><strong>天候:</strong> ${patrol.weather || '-'}</div>
-      </div>
-      <h2>当日の主作業</h2><div class="note">${(patrol.mainWork || '-').replace(/</g, '&lt;')}</div>
-      <h2>指摘事項（${issues.length}件）</h2>
-      <table><thead><tr><th style="width:6%">No</th><th style="width:14%">区分</th><th style="width:14%">状態</th><th style="width:14%">緊急度</th><th>内容</th></tr></thead>
-      <tbody>${issueRows || '<tr><td colspan="5">指摘事項なし</td></tr>'}</tbody></table>
-      <h2>特記事項</h2><div class="note">${(patrol.notes || '-').replace(/</g, '&lt;')}</div>
-      </body></html>`;
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1200');
-    if (!printWindow) {
-      alert('PDF出力ウィンドウを開けませんでした。ポップアップブロックを解除してください。');
-      return;
-    }
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
+    navigate(`${location.pathname}?print=site-report`);
   };
 
+  const isPrintMode = new URLSearchParams(location.search).get('print') === 'site-report';
   const issues = findings.filter(f => f.type !== '好事例');
   const goodPractices = findings.filter(f => f.type === '好事例');
+
+  useEffect(() => {
+    if (!isPrintMode || !patrol) return;
+    const t = window.setTimeout(() => window.print(), 300);
+    return () => window.clearTimeout(t);
+  }, [isPrintMode, patrol]);
+
+  if (isPrintMode && patrol) {
+    return (
+      <div className="bg-white text-gray-900 p-6 max-w-[210mm] mx-auto min-h-[297mm]">
+        <style>{`@media print { @page { size: A4 portrait; margin: 10mm; } .no-print { display:none; } }`}</style>
+        <div className="no-print mb-4 flex gap-2">
+          <button onClick={() => window.print()} className="bg-emerald-600 text-white px-4 py-2 rounded-lg">印刷</button>
+          <button onClick={() => navigate(location.pathname)} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg">戻る</button>
+        </div>
+        <h1 className="text-2xl font-bold mb-4">パトロール結果報告書</h1>
+        <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+          <p><span className="font-semibold">現場名:</span> {site?.name || '-'}</p>
+          <p><span className="font-semibold">実施日:</span> {format(parseISO(patrol.date), 'yyyy/MM/dd')}</p>
+          <p><span className="font-semibold">実施者:</span> {patrol.inspector || '-'}</p>
+          <p><span className="font-semibold">天候:</span> {patrol.weather || '-'}</p>
+        </div>
+        <h2 className="text-base font-bold mt-3 mb-1">当日の主作業</h2>
+        <div className="border border-gray-300 rounded p-2 text-sm whitespace-pre-wrap">{patrol.mainWork || '-'}</div>
+        <h2 className="text-base font-bold mt-3 mb-1">指摘事項（{issues.length}件）</h2>
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-1 w-10">No</th><th className="border p-1 w-20">区分</th><th className="border p-1 w-20">状態</th><th className="border p-1 w-24">緊急度</th><th className="border p-1">内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            {issues.length > 0 ? issues.map((f, idx) => (
+              <tr key={f.id}>
+                <td className="border p-1 align-top">{idx + 1}</td>
+                <td className="border p-1 align-top">{f.type}</td>
+                <td className="border p-1 align-top">{f.status}</td>
+                <td className="border p-1 align-top">{f.urgency || '-'}</td>
+                <td className="border p-1 align-top whitespace-pre-wrap">{f.description || '-'}</td>
+              </tr>
+            )) : <tr><td colSpan={5} className="border p-2 text-center">指摘事項なし</td></tr>}
+          </tbody>
+        </table>
+        <h2 className="text-base font-bold mt-3 mb-1">特記事項</h2>
+        <div className="border border-gray-300 rounded p-2 text-sm whitespace-pre-wrap">{patrol.notes || '-'}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
