@@ -2,13 +2,28 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    function isAdmin() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // パトロール記録と指摘記録の削除は管理者のみ
+    match /patrols/{patrolId} {
+      allow delete: if isAdmin();
+      allow read, create, update: if isAuthenticated();
+    }
+
+    match /findings/{findingId} {
+      allow delete: if isAdmin();
+      allow read, create, update: if isAuthenticated();
+    }
+
     // MVP: 認証済みユーザーであれば全コレクションの読み書きを許可する
-    // より確実な保存を優先するため、複雑なバリデーションを一時的に無効化
     match /{document=**} {
       allow read, write: if isAuthenticated();
     }

@@ -44,13 +44,11 @@ const FindingNew: React.FC = () => {
   // 分類マスタ
   const [majors, setMajors] = useState<Category[]>([]);
   const [middles, setMiddles] = useState<Category[]>([]);
-  const [minors, setMinors] = useState<Category[]>([]);
 
   const [formData, setFormData] = useState({
     type: '是正指示',
     urgency: '早期是正',
     categoryMajor: '',
-    categoryMiddle: '',
     categoryMinor: '',
     categoryOtherReason: '',
     description: '',
@@ -84,19 +82,11 @@ const FindingNew: React.FC = () => {
             .filter(d => d.isActive !== false)
         );
 
-        const minorQ = query(collection(db, 'category_minor'), orderBy('order', 'asc'));
-        const minorSnap = await getDocs(minorQ);
-        setMinors(
-          minorSnap.docs
-            .map(d => ({ id: d.id, parentId: d.data().middleId, ...d.data() } as Category))
-            .filter(d => d.isActive !== false)
-        );
       } catch (err: any) {
         console.error('Failed to fetch categories:', err);
         setCategoryLoadError(err?.message || '分類マスタの読込に失敗しました。');
         setMajors([]);
         setMiddles([]);
-        setMinors([]);
       }
     };
 
@@ -219,12 +209,6 @@ const FindingNew: React.FC = () => {
       }
 
       if (name === 'categoryMajor') {
-        newData.categoryMiddle = '';
-        newData.categoryMinor = '';
-        newData.categoryOtherReason = '';
-      }
-
-      if (name === 'categoryMiddle') {
         newData.categoryMinor = '';
         newData.categoryOtherReason = '';
       }
@@ -353,16 +337,9 @@ const FindingNew: React.FC = () => {
   const isGoodPractice = formData.type === '好事例';
 
   const selectedMajor = majors.find(m => m.name === formData.categoryMajor);
-  const selectedMiddle = middles.find(
-    m => m.name === formData.categoryMiddle && m.parentId === selectedMajor?.id
-  );
-
-  const majorOptions = majors.map(m => m.name);
+  const majorOptions = Array.from(new Set([...majors.map(m => m.name), 'その他']));
   const middleOptions = selectedMajor
-    ? middles.filter(m => m.parentId === selectedMajor.id).map(m => m.name)
-    : [];
-  const minorOptions = selectedMiddle
-    ? minors.filter(m => m.parentId === selectedMiddle.id).map(m => m.name)
+    ? Array.from(new Set([...middles.filter(m => m.parentId === selectedMajor.id).map(m => m.name), 'その他']))
     : [];
 
   return (
@@ -468,14 +445,6 @@ const FindingNew: React.FC = () => {
                 )}
               </div>
               <div className="flex items-center">
-                <span className="w-20 text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded text-center mr-3">中分類</span>
-                {formData.categoryMiddle ? (
-                  <span className="text-blue-800 font-bold">{formData.categoryMiddle}</span>
-                ) : (
-                  <span className="text-gray-400 text-sm">未選択</span>
-                )}
-              </div>
-              <div className="flex items-center">
                 <span className="w-20 text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded text-center mr-3">小分類</span>
                 {formData.categoryMinor ? (
                   <span className="text-blue-800 font-bold">{formData.categoryMinor}</span>
@@ -503,7 +472,6 @@ const FindingNew: React.FC = () => {
                   onChange={(e) => setFormData(prev => ({
                     ...prev,
                     categoryMajor: e.target.value,
-                    categoryMiddle: '',
                     categoryMinor: '',
                     categoryOtherReason: ''
                   }))}
@@ -519,37 +487,10 @@ const FindingNew: React.FC = () => {
 
             {formData.categoryMajor && (
               <div className="pt-6 border-t-2 border-dashed border-gray-200 animate-in fade-in slide-in-from-top-4 duration-300">
-                <label className="block text-base font-bold text-gray-900 mb-3">2. 中分類を選択してください</label>
+                <label className="block text-base font-bold text-gray-900 mb-3">2. 小分類を選択してください</label>
                 {middleOptions.length === 0 ? (
                   <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    この大分類に紐づく中分類がありません。
-                  </div>
-                ) : (
-                  <select
-                    value={formData.categoryMiddle}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      categoryMiddle: e.target.value,
-                      categoryMinor: '',
-                      categoryOtherReason: ''
-                    }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base font-medium text-gray-900"
-                  >
-                    <option value="">中分類を選択してください</option>
-                    {middleOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-
-            {formData.categoryMiddle && (
-              <div className="pt-6 border-t-2 border-dashed border-gray-200 animate-in fade-in slide-in-from-top-4 duration-300">
-                <label className="block text-base font-bold text-gray-900 mb-3">3. 小分類を選択してください</label>
-                {minorOptions.length === 0 ? (
-                  <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    この中分類に紐づく小分類がありません。
+                    この大分類に紐づく小分類がありません。
                   </div>
                 ) : (
                   <select
@@ -562,7 +503,7 @@ const FindingNew: React.FC = () => {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base font-medium text-gray-900"
                   >
                     <option value="">小分類を選択してください</option>
-                    {minorOptions.map(opt => (
+                    {middleOptions.map(opt => (
                       <option key={opt} value={opt}>{opt}</option>
                     ))}
                   </select>
