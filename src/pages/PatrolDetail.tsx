@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc, getDocs, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, Calendar, User, ArrowLeft, MapPin, Plus, AlertCircle, Trash2 } from 'lucide-react';
+import { ClipboardList, Calendar, User, ArrowLeft, MapPin, Plus, AlertCircle, Trash2, Save, Pencil, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 interface Patrol {
@@ -32,15 +32,6 @@ interface Finding {
   urgency?: string;
 }
 
-const getStatusDisplay = (status: string) => {
-  switch (status) {
-    case 'draft': return { label: '下書き', className: 'bg-gray-100 text-gray-700' };
-    case 'registered': return { label: '登録済', className: 'bg-blue-100 text-blue-700' };
-    case 'following': return { label: 'フォロー中', className: 'bg-yellow-100 text-yellow-700' };
-    case 'completed': return { label: '完了', className: 'bg-green-100 text-green-700' };
-    default: return { label: '下書き', className: 'bg-gray-100 text-gray-700' };
-  }
-};
 
 const PatrolDetail: React.FC = () => {
   const { patrolId } = useParams<{ patrolId: string }>();
@@ -50,6 +41,15 @@ const PatrolDetail: React.FC = () => {
   const [site, setSite] = useState<Site | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    date: '',
+    inspector: '',
+    weather: '',
+    mainWork: '',
+    notes: '',
+  });
 
   useEffect(() => {
     if (!isAuthReady || !profile || !patrolId) return;
@@ -60,6 +60,13 @@ const PatrolDetail: React.FC = () => {
         if (patrolDoc.exists()) {
           const patrolData = { id: patrolDoc.id, ...patrolDoc.data() } as Patrol;
           setPatrol(patrolData);
+          setFormData({
+            date: patrolData.date || '',
+            inspector: patrolData.inspector || '',
+            weather: patrolData.weather || '',
+            mainWork: patrolData.mainWork || '',
+            notes: patrolData.notes || '',
+          });
 
           const siteDoc = await getDoc(doc(db, 'sites', patrolData.siteId));
           if (siteDoc.exists()) {
@@ -102,6 +109,39 @@ const PatrolDetail: React.FC = () => {
       handleFirestoreError(error, OperationType.DELETE, `patrols/${patrolId}`);
     }
   };
+
+
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSavePatrol = async () => {
+    if (!patrolId || !canUseSafetyFeatures(profile?.role)) return;
+    if (!formData.date || !formData.inspector.trim()) {
+      alert('実施日と実施者は必須です。');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateDoc(doc(db, 'patrols', patrolId), {
+        date: formData.date,
+        inspector: formData.inspector.trim(),
+        weather: formData.weather.trim(),
+        mainWork: formData.mainWork.trim(),
+        notes: formData.notes.trim(),
+      });
+      setPatrol(prev => prev ? { ...prev, ...formData } : prev);
+      setIsEditing(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `patrols/${patrolId}`);
+      alert('更新に失敗しました。');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const issues = findings.filter(f => f.type !== '好事例');
   const goodPractices = findings.filter(f => f.type === '好事例');
 
@@ -119,9 +159,6 @@ const PatrolDetail: React.FC = () => {
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1">
-                <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusDisplay(patrol.status).className}`}>
-                  {getStatusDisplay(patrol.status).label}
-                </span>
                 <span className="text-sm text-gray-500 flex items-center">
                   <Calendar size={14} className="mr-1" />
                   {format(parseISO(patrol.date), 'yyyy/MM/dd')}
@@ -134,18 +171,34 @@ const PatrolDetail: React.FC = () => {
             </div>
           </div>
           {canUseSafetyFeatures(profile?.role) && (
-            <button onClick={handleDeletePatrol} className="bg-red-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center">
-              <Trash2 size={16} className="mr-1" />削除
-            </button>
-          )}
-          {canUseSafetyFeatures(profile?.role) && patrol.status === 'draft' && (
-            <Link
-              to={`/patrols/${patrol.id}/findings/new`}
-              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm w-full sm:w-auto justify-center shrink-0"
-            >
-              <Plus size={20} className="mr-2" />
-              指摘事項を追加
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              {isEditing ? (
+                <>
+                  <button onClick={() => setIsEditing(false)} className="bg-gray-100 text-gray-700 px-4 py-2 rounded-xl font-medium hover:bg-gray-200 transition-colors flex items-center">
+                    <X size={16} className="mr-1" />キャンセル
+                  </button>
+                  <button onClick={handleSavePatrol} disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50">
+                    <Save size={16} className="mr-1" />保存
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setIsEditing(true)} className="bg-gray-700 text-white px-4 py-2 rounded-xl font-medium hover:bg-gray-800 transition-colors flex items-center">
+                  <Pencil size={16} className="mr-1" />編集
+                </button>
+              )}
+              <button onClick={handleDeletePatrol} className="bg-red-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center">
+                <Trash2 size={16} className="mr-1" />削除
+              </button>
+              {patrol.status === 'draft' && (
+                <Link
+                  to={`/patrols/${patrol.id}/findings/new`}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm w-full sm:w-auto justify-center shrink-0"
+                >
+                  <Plus size={20} className="mr-2" />
+                  指摘事項を追加
+                </Link>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -155,26 +208,48 @@ const PatrolDetail: React.FC = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-4 border-b pb-2">パトロール情報</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             <div>
+              <p className="text-sm text-gray-500 mb-1">実施日</p>
+              {isEditing ? (
+                <input type="date" name="date" value={formData.date} onChange={handleFormChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required />
+              ) : (
+                <p className="font-medium text-gray-900">{format(parseISO(patrol.date), 'yyyy/MM/dd')}</p>
+              )}
+            </div>
+            <div>
               <p className="text-sm text-gray-500 mb-1">実施者</p>
-              <p className="font-medium text-gray-900 flex items-center">
-                <User size={16} className="mr-2 text-gray-400" />
-                {patrol.inspector}
-              </p>
+              {isEditing ? (
+                <input type="text" name="inspector" value={formData.inspector} onChange={handleFormChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" required />
+              ) : (
+                <p className="font-medium text-gray-900 flex items-center">
+                  <User size={16} className="mr-2 text-gray-400" />
+                  {patrol.inspector}
+                </p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">天候</p>
-              <p className="font-medium text-gray-900">{patrol.weather || '-'}</p>
+              {isEditing ? (
+                <input type="text" name="weather" value={formData.weather} onChange={handleFormChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+              ) : (
+                <p className="font-medium text-gray-900">{patrol.weather || '-'}</p>
+              )}
             </div>
             <div>
               <p className="text-sm text-gray-500 mb-1">当日の主作業</p>
-              <p className="font-medium text-gray-900">{patrol.mainWork || '-'}</p>
+              {isEditing ? (
+                <input type="text" name="mainWork" value={formData.mainWork} onChange={handleFormChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+              ) : (
+                <p className="font-medium text-gray-900">{patrol.mainWork || '-'}</p>
+              )}
             </div>
-            {patrol.notes && (
-              <div className="md:col-span-2 xl:col-span-4">
-                <p className="text-sm text-gray-500 mb-1">特記事項</p>
-                <p className="text-gray-700 whitespace-pre-wrap">{patrol.notes}</p>
-              </div>
-            )}
+            <div className="md:col-span-2 xl:col-span-4">
+              <p className="text-sm text-gray-500 mb-1">特記事項</p>
+              {isEditing ? (
+                <textarea name="notes" rows={4} value={formData.notes} onChange={handleFormChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+              ) : (
+                <p className="text-gray-700 whitespace-pre-wrap">{patrol.notes || '-'}</p>
+              )}
+            </div>
           </div>
         </div>
 
