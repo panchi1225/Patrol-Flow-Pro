@@ -64,6 +64,15 @@ const FindingDetail: React.FC = () => {
   const [confirmationResult, setConfirmationResult] = useState('完了');
   const [confirmationComment, setConfirmationComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    description: '',
+    location: '',
+    correctionInstruction: '',
+    deadline: '',
+    notes: '',
+    status: '未対応',
+  });
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
 
@@ -273,6 +282,40 @@ const FindingDetail: React.FC = () => {
       handleFirestoreError(error, OperationType.DELETE, `findings/${findingId}`);
     }
   };
+  const openEditModal = () => {
+    if (!finding) return;
+    setEditForm({
+      description: finding.description ?? '',
+      location: finding.location ?? '',
+      correctionInstruction: finding.correctionInstruction ?? '',
+      deadline: finding.deadline ?? '',
+      notes: finding.notes ?? '',
+      status: finding.status ?? '未対応',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateFinding = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!findingId || !canUseSafetyFeatures(profile?.role)) return;
+    setSubmitting(true);
+    try {
+      await updateDoc(doc(db, 'findings', findingId), {
+        description: editForm.description,
+        location: editForm.location,
+        correctionInstruction: editForm.correctionInstruction,
+        deadline: editForm.deadline || null,
+        notes: editForm.notes,
+        status: editForm.status,
+      });
+      setIsEditModalOpen(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `findings/${findingId}`);
+      alert('指摘事項の更新に失敗しました。');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
   if (!finding) return <div className="p-8 text-center text-red-500">指摘事項が見つかりません。</div>;
@@ -297,9 +340,14 @@ const FindingDetail: React.FC = () => {
             戻る
           </button>
           {canUseSafetyFeatures(profile?.role) && (
-            <button onClick={handleDeleteFinding} className="bg-red-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center">
-              <Trash2 size={16} className="mr-1" />削除
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={openEditModal} className="bg-blue-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-blue-700 transition-colors flex items-center">
+                修正
+              </button>
+              <button onClick={handleDeleteFinding} className="bg-red-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center">
+                <Trash2 size={16} className="mr-1" />削除
+              </button>
+            </div>
           )}
         </div>
         <div className="flex items-center justify-between">
@@ -590,6 +638,31 @@ const FindingDetail: React.FC = () => {
                     '登録する'
                   )}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isEditModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-gray-900">指摘事項の修正</h3>
+              <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
+            </div>
+            <form onSubmit={handleUpdateFinding} className="p-6 space-y-4">
+              <textarea required rows={3} value={editForm.description} onChange={(e) => setEditForm(prev => ({ ...prev, description: e.target.value }))} className="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+              <input value={editForm.location} onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))} placeholder="発生場所" className="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+              {finding.type !== '好事例' && <textarea rows={3} value={editForm.correctionInstruction} onChange={(e) => setEditForm(prev => ({ ...prev, correctionInstruction: e.target.value }))} placeholder="是正内容（指示）" className="w-full px-4 py-3 border border-gray-300 rounded-xl" />}
+              <input type="date" value={editForm.deadline} onChange={(e) => setEditForm(prev => ({ ...prev, deadline: e.target.value }))} className="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+              <select value={editForm.status} onChange={(e) => setEditForm(prev => ({ ...prev, status: e.target.value }))} className="w-full px-4 py-3 border border-gray-300 rounded-xl">
+                <option value="未対応">未対応</option><option value="対応中">対応中</option><option value="確認待ち">確認待ち</option><option value="完了">完了</option><option value="対象外">対象外</option>
+              </select>
+              <textarea rows={3} value={editForm.notes} onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))} placeholder="備考" className="w-full px-4 py-3 border border-gray-300 rounded-xl" />
+              <div className="flex justify-end gap-3">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 border border-gray-300 rounded-lg">キャンセル</button>
+                <button type="submit" disabled={submitting} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50">保存</button>
               </div>
             </form>
           </div>

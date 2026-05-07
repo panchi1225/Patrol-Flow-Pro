@@ -102,7 +102,6 @@ const PatrolDetail: React.FC = () => {
       handleFirestoreError(error, OperationType.DELETE, `patrols/${patrolId}`);
     }
   };
-
   const issues = findings.filter(f => f.type !== '好事例');
   const goodPractices = findings.filter(f => f.type === '好事例');
 
