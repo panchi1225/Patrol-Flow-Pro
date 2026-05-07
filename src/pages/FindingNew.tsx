@@ -43,7 +43,6 @@ const FindingNew: React.FC = () => {
 
   // 分類マスタ
   const [majors, setMajors] = useState<Category[]>([]);
-  const [middles, setMiddles] = useState<Category[]>([]);
 
   const [formData, setFormData] = useState({
     type: '是正指示',
@@ -74,19 +73,10 @@ const FindingNew: React.FC = () => {
             .filter(d => d.isActive !== false)
         );
 
-        const middleQ = query(collection(db, 'category_middle'), orderBy('order', 'asc'));
-        const middleSnap = await getDocs(middleQ);
-        setMiddles(
-          middleSnap.docs
-            .map(d => ({ id: d.id, parentId: d.data().majorId, ...d.data() } as Category))
-            .filter(d => d.isActive !== false)
-        );
-
       } catch (err: any) {
         console.error('Failed to fetch categories:', err);
         setCategoryLoadError(err?.message || '分類マスタの読込に失敗しました。');
         setMajors([]);
-        setMiddles([]);
       }
     };
 
@@ -336,11 +326,7 @@ const FindingNew: React.FC = () => {
   const isCorrection = formData.type === '是正指示';
   const isGoodPractice = formData.type === '好事例';
 
-  const selectedMajor = majors.find(m => m.name === formData.categoryMajor);
-  const majorOptions = Array.from(new Set([...majors.map(m => m.name), 'その他']));
-  const middleOptions = selectedMajor
-    ? Array.from(new Set([...middles.filter(m => m.parentId === selectedMajor.id).map(m => m.name), 'その他']))
-    : [];
+  const categoryOptions = Array.from(new Set([...majors.map(m => m.name), 'その他']));
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
@@ -433,36 +419,14 @@ const FindingNew: React.FC = () => {
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
           <h2 className="text-lg font-bold text-gray-900 mb-6 border-b pb-2">分類</h2>
 
-          <div className="mb-8 p-5 bg-gray-50 rounded-xl border border-gray-200">
-            <div className="text-sm font-bold text-gray-700 mb-4 border-b border-gray-200 pb-2">現在の選択状況</div>
-            <div className="flex flex-col gap-3 text-gray-900 font-medium">
-              <div className="flex items-center">
-                <span className="w-20 text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded text-center mr-3">大分類</span>
-                {formData.categoryMajor ? (
-                  <span className="text-blue-800 font-bold">{formData.categoryMajor}</span>
-                ) : (
-                  <span className="text-gray-400 text-sm">未選択</span>
-                )}
-              </div>
-              <div className="flex items-center">
-                <span className="w-20 text-xs font-bold text-gray-500 bg-gray-200 px-2 py-1 rounded text-center mr-3">小分類</span>
-                {formData.categoryMinor ? (
-                  <span className="text-blue-800 font-bold">{formData.categoryMinor}</span>
-                ) : (
-                  <span className="text-gray-400 text-sm">未選択</span>
-                )}
-              </div>
-            </div>
-          </div>
-
           <div className="space-y-8">
             <div>
-              <label className="block text-base font-bold text-gray-900 mb-3">1. 大分類を選択してください</label>
+              <label className="block text-base font-bold text-gray-900 mb-3">分類を選択してください</label>
               {categoryLoadError ? (
                 <div className="text-sm text-red-600 p-4 bg-red-50 rounded-xl border border-red-200">
                   分類マスタの読込に失敗しました。{categoryLoadError}
                 </div>
-              ) : majorOptions.length === 0 ? (
+              ) : categoryOptions.length === 0 ? (
                 <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-xl border border-gray-200">
                   分類マスタが登録されていません。設定画面から分類を登録するか、初期データを投入してください。
                 </div>
@@ -472,46 +436,20 @@ const FindingNew: React.FC = () => {
                   onChange={(e) => setFormData(prev => ({
                     ...prev,
                     categoryMajor: e.target.value,
-                    categoryMinor: '',
+                    categoryMinor: e.target.value,
                     categoryOtherReason: ''
                   }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base font-medium text-gray-900"
                 >
-                  <option value="">大分類を選択してください</option>
-                  {majorOptions.map(opt => (
+                  <option value="">分類を選択してください</option>
+                  {categoryOptions.map(opt => (
                     <option key={opt} value={opt}>{opt}</option>
                   ))}
                 </select>
               )}
             </div>
 
-            {formData.categoryMajor && (
-              <div className="pt-6 border-t-2 border-dashed border-gray-200 animate-in fade-in slide-in-from-top-4 duration-300">
-                <label className="block text-base font-bold text-gray-900 mb-3">2. 小分類を選択してください</label>
-                {middleOptions.length === 0 ? (
-                  <div className="text-sm text-gray-500 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    この大分類に紐づく小分類がありません。
-                  </div>
-                ) : (
-                  <select
-                    value={formData.categoryMinor}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      categoryMinor: e.target.value,
-                      categoryOtherReason: ''
-                    }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-base font-medium text-gray-900"
-                  >
-                    <option value="">小分類を選択してください</option>
-                    {middleOptions.map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-
-            {formData.categoryMinor === 'その他' && (
+{formData.categoryMinor === 'その他' && (
               <div className="pt-6 border-t-2 border-dashed border-gray-200 animate-in fade-in slide-in-from-top-4 duration-300">
                 <label className="block text-base font-bold text-gray-900 mb-2">その他の理由 <span className="text-red-500">*</span></label>
                 <input
@@ -533,7 +471,7 @@ const FindingNew: React.FC = () => {
             <div className="flex items-start mb-4">
               <Repeat className="text-amber-600 mr-2 shrink-0 mt-0.5" size={20} />
               <div>
-                <h3 className="text-lg font-bold text-amber-900">過去に同一現場・同一小分類の指摘があります</h3>
+                <h3 className="text-lg font-bold text-amber-900">過去に同一現場・同一分類の指摘があります</h3>
                 <p className="text-sm text-amber-800 mt-1">再発案件として登録する場合は、もとになる指摘を選択してチェックしてください。</p>
               </div>
             </div>

@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { doc, collection, query, where, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, uploadPhoto } from '../lib/firebase';
 import { canUseFieldFeatures, canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, AlertCircle, CheckCircle, Clock, MapPin, FileText, User, Camera, X } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle, Clock, MapPin, FileText, User, Camera, X, Trash2 } from 'lucide-react';
 import { format, parseISO, isPast } from 'date-fns';
 
 interface Finding {
@@ -254,6 +254,26 @@ const FindingDetail: React.FC = () => {
     }
   };
 
+
+  const handleDeleteFinding = async () => {
+    if (!findingId || !canUseSafetyFeatures(profile?.role)) return;
+    if (!window.confirm('この指摘記録を削除します。よろしいですか？')) return;
+    try {
+      const actionsSnap = await getDocs(query(collection(db, 'corrective_actions'), where('findingId', '==', findingId)));
+      const legacySnap = await getDocs(query(collection(db, 'corrective_actions'), where('finding_id', '==', findingId)));
+      const confirmsSnap = await getDocs(query(collection(db, 'confirmations'), where('findingId', '==', findingId)));
+      await Promise.all([
+        ...actionsSnap.docs.map(d => deleteDoc(d.ref)),
+        ...legacySnap.docs.map(d => deleteDoc(d.ref)),
+        ...confirmsSnap.docs.map(d => deleteDoc(d.ref)),
+      ]);
+      await deleteDoc(doc(db, 'findings', findingId));
+      navigate(-1);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `findings/${findingId}`);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
   if (!finding) return <div className="p-8 text-center text-red-500">指摘事項が見つかりません。</div>;
 
@@ -271,10 +291,17 @@ const FindingDetail: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="mb-6">
-        <button onClick={handleBack} className="inline-flex items-center text-gray-500 hover:text-gray-900 mb-4">
-          <ArrowLeft size={20} className="mr-2" />
-          戻る
-        </button>
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={handleBack} className="inline-flex items-center text-gray-500 hover:text-gray-900">
+            <ArrowLeft size={20} className="mr-2" />
+            戻る
+          </button>
+          {canUseSafetyFeatures(profile?.role) && (
+            <button onClick={handleDeleteFinding} className="bg-red-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center">
+              <Trash2 size={16} className="mr-1" />削除
+            </button>
+          )}
+        </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="bg-blue-100 p-4 rounded-xl">

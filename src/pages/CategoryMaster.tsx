@@ -378,42 +378,16 @@ export default function CategoryMaster() {
       ];
       await Promise.all(deletePromises);
 
-      // 2. 初期データの投入
+      // 2. 初期データの投入（分類のみ）
       let majorOrder = 1;
       for (const major of CATEGORY_SEED) {
-        const majorRef = await addDoc(collection(db, 'category_major'), {
+        await addDoc(collection(db, 'category_major'), {
           name: major.name,
           order: majorOrder++,
           isActive: true,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
-        const majorId = majorRef.id;
-
-        let middleOrder = 1;
-        for (const middle of major.middles) {
-          const middleRef = await addDoc(collection(db, 'category_middle'), {
-            name: middle.name,
-            majorId: majorId,
-            order: middleOrder++,
-            isActive: true,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-          const middleId = middleRef.id;
-
-          let minorOrder = 1;
-          for (const minorName of middle.minors) {
-            await addDoc(collection(db, 'category_minor'), {
-              name: minorName,
-              middleId: middleId,
-              order: minorOrder++,
-              isActive: true,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
-          }
-        }
       }
     } catch (err) {
       console.error(err);
@@ -598,7 +572,7 @@ export default function CategoryMaster() {
       <div className="mb-6 shrink-0 flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">指摘分類マスタ管理</h1>
-          <p className="text-gray-500 mt-2">大分類・中分類・小分類の階層構造を管理します。</p>
+          <p className="text-gray-500 mt-2">分類を管理します。</p>
         </div>
         {isAdmin(profile?.role) && (
           <button
@@ -637,17 +611,7 @@ export default function CategoryMaster() {
           {renderList('major', majors, selectedMajorId, (id) => {
             setSelectedMajorId(id);
             setSelectedMiddleId(null);
-          }, '大分類')}
-        </div>
-
-        {/* 中分類 */}
-        <div className={cn("h-[400px] md:h-[500px] transition-opacity", !selectedMajorId && "opacity-50 pointer-events-none")}>
-          {renderList('middle', middles, selectedMiddleId, setSelectedMiddleId, '中分類')}
-        </div>
-
-        {/* 小分類 */}
-        <div className={cn("h-[400px] md:h-[500px] transition-opacity", !selectedMiddleId && "opacity-50 pointer-events-none")}>
-          {renderList('minor', minors, null, () => {}, '小分類')}
+          }, '分類')}
         </div>
       </div>
     </div>

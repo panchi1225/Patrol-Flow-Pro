@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { doc, getDoc, collection, query, where, onSnapshot, deleteDoc, getDocs } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { canUseSafetyFeatures } from '../lib/permissions';
 import { useAuth } from '../contexts/AuthContext';
-import { ClipboardList, Calendar, User, ArrowLeft, MapPin, Plus, AlertCircle, CheckCircle } from 'lucide-react';
+import { ClipboardList, Calendar, User, ArrowLeft, MapPin, Plus, AlertCircle, Trash2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 
 interface Patrol {
@@ -45,6 +45,7 @@ const getStatusDisplay = (status: string) => {
 const PatrolDetail: React.FC = () => {
   const { patrolId } = useParams<{ patrolId: string }>();
   const { profile, isAuthReady } = useAuth();
+  const navigate = useNavigate();
   const [patrol, setPatrol] = useState<Patrol | null>(null);
   const [site, setSite] = useState<Site | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
@@ -88,6 +89,20 @@ const PatrolDetail: React.FC = () => {
   if (loading) return <div className="p-8 text-center text-gray-500">読み込み中...</div>;
   if (!patrol) return <div className="p-8 text-center text-red-500">パトロール記録が見つかりません。</div>;
 
+
+  const handleDeletePatrol = async () => {
+    if (!patrolId || !canUseSafetyFeatures(profile?.role)) return;
+    if (!window.confirm('このパトロール記録を削除します。紐づく指摘記録も削除されます。よろしいですか？')) return;
+    try {
+      const findingsSnap = await getDocs(query(collection(db, 'findings'), where('patrolId', '==', patrolId)));
+      await Promise.all(findingsSnap.docs.map((d) => deleteDoc(d.ref)));
+      await deleteDoc(doc(db, 'patrols', patrolId));
+      navigate('/patrols');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `patrols/${patrolId}`);
+    }
+  };
+
   const issues = findings.filter(f => f.type !== '好事例');
   const goodPractices = findings.filter(f => f.type === '好事例');
 
@@ -119,6 +134,11 @@ const PatrolDetail: React.FC = () => {
               </h1>
             </div>
           </div>
+          {canUseSafetyFeatures(profile?.role) && (
+            <button onClick={handleDeletePatrol} className="bg-red-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-red-700 transition-colors flex items-center">
+              <Trash2 size={16} className="mr-1" />削除
+            </button>
+          )}
           {canUseSafetyFeatures(profile?.role) && patrol.status === 'draft' && (
             <Link
               to={`/patrols/${patrol.id}/findings/new`}
